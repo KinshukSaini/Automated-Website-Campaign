@@ -4,12 +4,14 @@ import { useState } from "react";
 
 export default function Home() {
   const [text, setText] = useState("");
-  const [result, setResult] = useState<unknown>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string>("");
+  const [isLoading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
     try {
       setError("");
+      setLoading(true);
 
       const post = await fetch("/api", {
         method: "POST",
@@ -29,9 +31,12 @@ export default function Home() {
 
       setResult(data);
       console.log(data);
+
     } catch (error) {
       setError("Request failed. Please try again.");
       console.error("Request failed:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -47,9 +52,12 @@ export default function Home() {
         />
         <button
           onClick={handleSubmit}
-          className="bg-violet-900 hover:bg-violet-800 text-violet-200 py-2 px-4 rounded-2xl"
+          disabled={isLoading}
+          className={isLoading
+            ? "bg-violet-900/60 text-violet-300 py-2 px-4 rounded-2xl cursor-not-allowed"
+            : "bg-violet-900 hover:bg-violet-800 text-violet-200 py-2 px-4 rounded-2xl"}
         >
-          submit
+          {isLoading ? "Submitting..." : "submit"}
         </button>
       </div>
 
@@ -59,7 +67,7 @@ export default function Home() {
 
       {result ? (
         <pre className="max-w-3xl w-full overflow-auto rounded-xl bg-black/30 p-4 text-sm">
-          {JSON.stringify(result, null, 2)}
+          {JSON.stringify(result.searchTerms, null, 2)}
         </pre>
       ) : null}
     </div>

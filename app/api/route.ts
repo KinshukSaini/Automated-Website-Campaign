@@ -44,6 +44,39 @@ async function callCrawler(origin: string, url: string): Promise<CrawlApiRespons
     return parsed;
 }
 
+async function callLLM(origin: string, pages: unknown[]): Promise<string[]> {
+    try {
+        const response = await fetch(`${origin}/api/LLM`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pagesData: pages }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`LLM request failed with status ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (Array.isArray(result)) {
+            return result;
+        }
+
+        if (Array.isArray(result.searchTerms)) {
+            return result.searchTerms;
+        }
+
+        if (typeof result.text === "string") {
+            return [result.text];
+        }
+
+        return [];
+    } catch (error) {
+        console.error("Error calling LLM:", error);
+        throw new Error("Failed to call LLM");
+    }
+}
+
 async function handle(url: string, request: NextRequest) {
     const validationError = validateUrl(url);
     if (validationError) {
@@ -52,7 +85,9 @@ async function handle(url: string, request: NextRequest) {
 
     try {
         const crawlData = await callCrawler(request.nextUrl.origin, url);
-        return NextResponse.json(crawlData);
+        const searchTerms = await callLLM(request.nextUrl.origin, crawlData.pages ?? []);
+        console.log("Search terms:", searchTerms);
+        return NextResponse.json({ ...crawlData, searchTerms });
     } catch (error) {
         return NextResponse.json(
             {
