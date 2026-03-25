@@ -1,9 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isExternal } from "util/types";
 
 type CrawlApiResponse = {
     success?: boolean;
     pages?: unknown[];
     error?: string;
+};
+
+type reddit_json_type = {
+    id: string;
+    title: string;
+    text: string;
+    subreddit: string;
+    threadUrl: string;
+    isExternal: boolean;
 };
 
 function validateUrl(url: string): string | null {
@@ -76,6 +86,25 @@ async function callLLM(origin: string, pages: unknown[]): Promise<string[]> {
         throw new Error("Failed to call LLM");
     }
 }
+async function callRedditSearch(origin: string, searchTerms: string[]): Promise<reddit_json_type[]> {
+        if (searchTerms.length === 0) {
+            console.warn("No search terms provided to callRedditSearch");
+            return [];
+        }
+        const response = await fetch(`${origin}/api/reddit-search`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ keywords: searchTerms }),
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Reddit search failed with status ${response.status}`);
+        }
+        const reddit_json = await response.json();
+        console.log("Reddit search response:", reddit_json);
+        return reddit_json ?? [];
+}
+
 
 async function handle(url: string, request: NextRequest) {
     const validationError = validateUrl(url);
@@ -87,6 +116,8 @@ async function handle(url: string, request: NextRequest) {
         const crawlData = await callCrawler(request.nextUrl.origin, url);
         const searchTerms = await callLLM(request.nextUrl.origin, crawlData.pages ?? []);
         console.log("Search terms:", searchTerms);
+        const reddit_json = await callRedditSearch(request.nextUrl.origin, searchTerms);
+        console.log("Reddit search results:", reddit_json);
         return NextResponse.json({ ...crawlData, searchTerms });
     } catch (error) {
         return NextResponse.json(

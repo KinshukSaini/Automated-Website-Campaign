@@ -53,15 +53,26 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing GEMINI_API_KEY" }, { status: 500 });
   }
 
-  const prompt = `
-    [ROLE] Extract the relevant search terms from the following page data. Focus on keywords, topics, and themes that would help in searching on reddit for content that the website might be useful for. Provide the top 5 search terms in an array string format. If you can't find relevant search terms, return an empty array.
-    
-    [IMPORTANT] give the top 5 search terms in array string format: 
-    ["terms1", "terms2, ..."] 
-    
-    [PAGES_DATA]
-    ${JSON.stringify(pagesData)}
-    `
+  const prompt =`
+  [ROLE] 
+  You are an expert Growth Strategist. Analyze the provided website data to understand its core value proposition and identify where its potential users hang out on Reddit.
+
+  [TASK]
+  1. UNDERSTAND: Determine exactly what problem this website solves and for whom.
+  2. DESCRIBE: Write a 1-sentence "Elevator Pitch" that focuses on the "Pain Point" solved.
+  3. SEARCH: Generate 5 high-intent search phrases. These should not just be keywords, but "intent phrases" (e.g., instead of "legal ai", use "how to automate case law research").
+
+  [OUTPUT FORMAT]
+  You MUST return ONLY a valid JSON object with this exact structure:
+  {
+    "description": "A concise 1-sentence explanation of what the tool does and the specific problem it solves.",
+    "search_terms": ["phrase 1", "phrase 2", "phrase 3", "phrase 4", "phrase 5"]
+  }
+
+  [PAGES_DATA]
+  ${JSON.stringify(pagesData)}
+`
+
   const response = await ai.models.generateContent({
     model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
     contents: prompt,

@@ -1,23 +1,58 @@
-// import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-// export async function POST(request : NextRequest) {
-//   const { keyword } = await request.json();
-//   const url = `https://www.reddit.com/search.json?q=${keyword}&sort=new&limit=5`;
-  
-//   const response = await fetch(url, {
-//     headers: {
-//       // Always use a unique User-Agent so you don't get 429'd
-//       'User-Agent': 'web:black-letter-scout:v1.0 (by /u/YOUR_USERNAME)'
-//     }
-//   });
+type RedditPostData = {
+  id: string;
+  title: string;
+  selftext: string;
+  subreddit_name_prefixed: string;
+  permalink: string;
+  is_self: boolean;
+};
 
-//   const data = await response.json();
+type RedditSearchResponse = {
+  data: {
+    children: Array<{
+      data: RedditPostData;
+    }>;
+  };
+};
+
+export async function POST(request : NextRequest) {
+  const { keywords } = await request.json();
+  const keyword = keywords.map((p : string) => `"${p}"`).join(' OR ');
+  const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(keyword)}&sort=new&limit=5`;
   
-//   // Reddit's JSON structure is nested: data -> children -> data
-//   return data.data.children.map(post => ({
-//     title: post.data.title,
-//     url: post.data.url,
-//     text: post.data.selftext,
-//     id: post.data.id
-//   }));
-// }
+  const result = await fetch(url, {
+    headers: {
+      // Always use a unique User-Agent so you don't get 429'd
+      'User-Agent': 'my-app/app/api/reddit-search my-app/app/api/reddit-search/route.ts by /u/quieteGaze'
+    }
+  });
+
+  if (!result.ok) {
+    return NextResponse.json(
+      { error: "Failed to fetch Reddit posts" },
+      { status: result.status }
+    );
+  }
+
+  const json = (await result.json()) as RedditSearchResponse;
+
+    const postsForAI = json.data.children.map((child) => {
+        const post = child.data;
+
+        return {
+            id: post.id,
+            title: post.title,
+            text: post.selftext,
+            subreddit: post.subreddit_name_prefixed,
+            // This is the direct link to the thread for your browser
+            threadUrl: `https://www.reddit.com${post.permalink}`,
+            // This tells you if the post is actually just a link to another site
+            isExternal: post.is_self === false 
+        };
+    });
+
+  return NextResponse.json(postsForAI);
+
+}

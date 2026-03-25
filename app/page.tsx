@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 export default function Home() {
-  const [text, setText] = useState("");
+  const [text, setText] = useState("http://");
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string>("");
   const [isLoading, setLoading] = useState(false);
@@ -67,7 +67,7 @@ export default function Home() {
 
       {result ? (
         <pre className="max-w-3xl w-full overflow-auto rounded-xl bg-black/30 p-4 text-sm">
-          {JSON.stringify(result.searchTerms, null, 2)}
+          {JSON.stringify(result, null, 2)}
         </pre>
       ) : null}
     </div>
