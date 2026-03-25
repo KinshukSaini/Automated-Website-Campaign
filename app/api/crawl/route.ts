@@ -107,6 +107,6 @@ function extractData($: cheerio.CheerioAPI, url: string) {
     title,
     description,
     headings,
-    content, // THIS is the main readable text
+    content, // 👈 THIS is the main readable text
   };
 }

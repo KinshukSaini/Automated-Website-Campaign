@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isExternal } from "util/types";
 
 type CrawlApiResponse = {
     success?: boolean;
@@ -14,20 +15,6 @@ type reddit_json_type = {
     threadUrl: string;
     isExternal: boolean;
 };
-
-type LLMResult = {
-    description: string;
-    searchTerms: string[];
-};
-
-
-type posts = {
-    post_id: string;
-    subreddit: string;
-    reasoning: string;
-    reply_content: string;
-}
-
 
 function validateUrl(url: string): string | null {
     const trimmed = url.trim();
@@ -67,67 +54,41 @@ async function callCrawler(origin: string, url: string): Promise<CrawlApiRespons
     return parsed;
 }
 
-async function callLLM(origin: string, pages: unknown[]): Promise<LLMResult> {
+async function callLLM(origin: string, pages: unknown[]): Promise<string[]> {
     try {
         const response = await fetch(`${origin}/api/LLM`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ pagesData: pages }), // Send description to LLM as well
+            body: JSON.stringify({ pagesData: pages }),
         });
 
         if (!response.ok) {
-            const rawError = await response.text();
-            let details = rawError;
-            try {
-                const parsed = JSON.parse(rawError) as { error?: unknown };
-                if (typeof parsed.error === "string" && parsed.error.trim()) {
-                    details = parsed.error;
-                }
-            } catch {
-                // Keep plain text body as details when JSON parsing fails.
-            }
-
-            throw new Error(`LLM request failed with status ${response.status}${details ? `: ${details}` : ""}`);
+            throw new Error(`LLM request failed with status ${response.status}`);
         }
 
         const result = await response.json();
 
-        if (result && typeof result === "object" && !Array.isArray(result)) {
-            const searchTerms = Array.isArray((result as { searchTerms?: unknown }).searchTerms)
-                ? (result as { searchTerms: unknown[] }).searchTerms
-                : Array.isArray((result as { search_terms?: unknown }).search_terms)
-                    ? (result as { search_terms: unknown[] }).search_terms
-                    : [];
-
-            return {
-                description: typeof (result as { description?: unknown }).description === "string"
-                    ? (result as { description: string }).description
-                    : "",
-                searchTerms: searchTerms.map((item) => String(item)).filter(Boolean),
-            };
-        }
-
         if (Array.isArray(result)) {
-            return {
-                description: "",
-                searchTerms: result.map((item) => String(item)).filter(Boolean),
-            };
+            return result;
         }
 
-        return {
-            description: "",
-            searchTerms: [],
-        };
+        if (Array.isArray(result.searchTerms)) {
+            return result.searchTerms;
+        }
+
+        if (typeof result.text === "string") {
+            return [result.text];
+        }
+
+        return [];
     } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to call LLM";
-        console.error("Error calling LLM:", message);
-        throw new Error(message);
+        console.error("Error calling LLM:", error);
+        throw new Error("Failed to call LLM");
     }
 }
-
-async function getRedditPosts(origin: string, searchTerms: string[]): Promise<reddit_json_type[]> {
+async function callRedditSearch(origin: string, searchTerms: string[]): Promise<reddit_json_type[]> {
         if (searchTerms.length === 0) {
-            console.warn("No search terms provided to getRedditPosts");
+            console.warn("No search terms provided to callRedditSearch");
             return [];
         }
         const response = await fetch(`${origin}/api/reddit-search`, {
@@ -144,53 +105,20 @@ async function getRedditPosts(origin: string, searchTerms: string[]): Promise<re
         return reddit_json ?? [];
 }
 
-async function getPostContent(origin: string, reddit_json: reddit_json_type[], websiteData: { description: string; url: string }): Promise<posts[]> {
-    const res = await fetch(`${origin}/api/GenLLM`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reddit_json, websiteData }),
-    });
 
-    if (!res.ok) {
-        const rawError = await res.text();
-        throw new Error(`Generate post failed with status ${res.status}${rawError ? `: ${rawError}` : ""}`);
-    }
-
-    const finalPostContent = await res.json();
-    return finalPostContent;
-}
-
-
-async function handle(url: string, crequest: NextRequest) {
+async function handle(url: string, request: NextRequest) {
     const validationError = validateUrl(url);
     if (validationError) {
         return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
     try {
-        // crawl the given website and get the data
-        const crawlData = await callCrawler(crequest.nextUrl.origin, url);
-        
-        // call the LLM with the crawled data to get search terms
-        const llmResult = await callLLM(crequest.nextUrl.origin, crawlData.pages ?? []);
-        const searchTerms = llmResult.searchTerms;
+        const crawlData = await callCrawler(request.nextUrl.origin, url);
+        const searchTerms = await callLLM(request.nextUrl.origin, crawlData.pages ?? []);
         console.log("Search terms:", searchTerms);
-        console.log("Website description:", llmResult.description);
-        
-        // call reddit search with the search terms and get relevant posts
-        const reddit_json = await getRedditPosts(crequest.nextUrl.origin, searchTerms);
+        const reddit_json = await callRedditSearch(request.nextUrl.origin, searchTerms);
         console.log("Reddit search results:", reddit_json);
-
-        // Skip final post generation when there are no candidate Reddit threads.
-        const finalPostContent = reddit_json.length > 0
-            ? await getPostContent(crequest.nextUrl.origin, reddit_json, {
-                description: llmResult.description,
-                url,
-            })
-            : [];
-        console.log("Final post content:", finalPostContent);
-
-        return NextResponse.json({ ...crawlData, description: llmResult.description, searchTerms, finalPostContent });
+        return NextResponse.json({ ...crawlData, searchTerms });
     } catch (error) {
         return NextResponse.json(
             {
