@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
         - Provide a small piece of general advice or a "pro-tip" FIRST to show value.
         - Introduce the website as a potential solution: "I actually worked on/found this tool called [Name] that does [X]...".
         - Keep the tone humble, helpful, and conversational. Avoid "Marketing-speak" (e.g., no "Unlock your potential" or "Revolutionary").
+        - keep it concise - no more than 150 words.
 
         [DATA]
         Reddit Posts: ${JSON.stringify(reddit_json)}
