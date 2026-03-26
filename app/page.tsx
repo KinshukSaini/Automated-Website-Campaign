@@ -89,7 +89,7 @@ export default function Home() {
 
   return (
     <div className="bg-gray-800 text-violet-200 min-h-screen w-full px-4 py-10 flex flex-col items-center gap-10">
-      <h1 className="text-4xl text-center font-bold">Automated Website Campaign</h1>
+      <h1 className="text-4xl text-center font-bold">A Reddit automated outreach copilot</h1>
       <div className="w-full max-w-4xl flex flex-col sm:flex-row gap-4 sm:gap-6">
         <input
           className="border-2 rounded-2xl p-4 flex-1"
