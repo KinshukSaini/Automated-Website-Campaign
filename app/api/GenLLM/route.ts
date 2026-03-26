@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         [TASK]
         1. EVALUATE: Analyze the provided Reddit posts. Determine which ones are "High Intent" (the user is actively seeking a solution, complaining about a specific pain point, or asking for a tool recommendation).
         2. PERSONA: Act as a helpful peer "stumbled upon" the thread. 
-        3. WRITE: Draft a contextual REPLY to the most relevant posts. 
+        3. WRITE: Draft a contextual REPLY for 1-3 high-intent post.
 
         [GUIDELINES for THE REPLY]
         - Start by acknowledging the user's specific problem mentioned in their post.
@@ -103,14 +103,16 @@ export async function POST(request: NextRequest) {
         Reddit Posts: ${JSON.stringify(reddit_json)}
 
         [OUTPUT]
-        Return ONLY a JSON array of objects with the following structure:
+        Return ONLY a JSON array of objects with the following structure.
+        Include one object per selected posts.
+        If no post is relevant, return [{"no posts found": "No relevant Reddit posts"}]:
         [
             {
                 "post_id": "The ID of the specific Reddit post/comment you are replying to",
                 "subreddit": "r/example",
-                "reasoning": "Why this specific thread is a perfect match.",
+                "reasoning": "Why this specific thread is a perfect match. (keep it short, 1-2 sentences)",
                 "reply_content": "The actual text of the reply, including the website link naturally."
-            }
+            },
         ]
     `;
     try {
@@ -118,7 +120,7 @@ export async function POST(request: NextRequest) {
       model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
       contents: prompt,
       });
-
+      console.log("Raw LLM Response:", response.text);
       const parsedPosts = parseLLMResponse(response.text ?? "");
       console.log("Parsed LLM Response:", parsedPosts);
       return NextResponse.json(parsedPosts);

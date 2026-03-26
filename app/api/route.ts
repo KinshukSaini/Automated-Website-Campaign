@@ -26,6 +26,7 @@ type posts = {
     subreddit: string;
     reasoning: string;
     reply_content: string;
+    threadUrl?: string;
 }
 
 
@@ -157,7 +158,23 @@ async function getPostContent(origin: string, reddit_json: reddit_json_type[], w
     }
 
     const finalPostContent = await res.json();
-    return finalPostContent;
+    return Array.isArray(finalPostContent) ? (finalPostContent as posts[]) : [];
+}
+
+function enrichPostsWithThreadLinks(generatedPosts: posts[], redditPosts: reddit_json_type[]): posts[] {
+    const byId = new Map<string, reddit_json_type>();
+    for (const redditPost of redditPosts) {
+        byId.set(redditPost.id, redditPost);
+    }
+
+    return generatedPosts.map((post) => {
+        const source = byId.get(post.post_id);
+        return {
+            ...post,
+            subreddit: source?.subreddit ?? post.subreddit,
+            threadUrl: source?.threadUrl,
+        };
+    });
 }
 
 
@@ -174,12 +191,12 @@ async function handle(url: string, crequest: NextRequest) {
         // call the LLM with the crawled data to get search terms
         const llmResult = await callLLM(crequest.nextUrl.origin, crawlData.pages ?? []);
         const searchTerms = llmResult.searchTerms;
-        console.log("Search terms:", searchTerms);
-        console.log("Website description:", llmResult.description);
+        // console.log("Search terms:", searchTerms);
+        // console.log("Website description:", llmResult.description);
         
         // call reddit search with the search terms and get relevant posts
         const reddit_json = await getRedditPosts(crequest.nextUrl.origin, searchTerms);
-        console.log("Reddit search results:", reddit_json);
+        // console.log("Reddit search results:", reddit_json);
 
         // Skip final post generation when there are no candidate Reddit threads.
         const finalPostContent = reddit_json.length > 0
@@ -188,9 +205,10 @@ async function handle(url: string, crequest: NextRequest) {
                 url,
             })
             : [];
-        console.log("Final post content:", finalPostContent);
+        const finalPosts = enrichPostsWithThreadLinks(finalPostContent, reddit_json);
+        console.log("Final post content:", finalPosts);
 
-        return NextResponse.json({ ...crawlData, description: llmResult.description, searchTerms, finalPostContent });
+        return NextResponse.json({ ...crawlData, description: llmResult.description, searchTerms, finalPosts });
     } catch (error) {
         return NextResponse.json(
             {

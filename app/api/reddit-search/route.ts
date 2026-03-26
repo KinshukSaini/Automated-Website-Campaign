@@ -27,7 +27,7 @@ const query = keywords
   .map((p : string) => `(${p})`) 
   .join(' OR ');
 
-const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=new&limit=5`;
+const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=top&limit=5`;
   
   console.log("The final URL : ", url);
 
