@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
   [TASK]
   1. UNDERSTAND: Determine exactly what problem this website solves and for whom.
   2. DESCRIBE: Write a 1-sentence "Elevator Pitch" that focuses on the "Pain Point" solved.
-  3. SEARCH: Generate 5 high-intent search phrases. These should not just be keywords, but "intent phrases" (e.g., instead of "legal ai", use "how to automate case law research").
+  3. SEARCH: Generate 5 high-intent search keyterms, these should be chosen to maximize the chances of finding relevant Reddit threads where potential users discuss the problem this website solves. Avoid generic terms.
 
   [OUTPUT FORMAT]
   You MUST return ONLY a valid JSON object with this exact structure:

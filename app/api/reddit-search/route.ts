@@ -18,10 +18,19 @@ type RedditSearchResponse = {
 };
 
 export async function POST(request : NextRequest) {
-  const { keywords } = await request.json();
-  const keyword = keywords.map((p : string) => `"${p}"`).join(' OR ');
-  const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(keyword)}&sort=new&limit=5`;
+const { keywords } = await request.json();
+
+// 1. Remove quotes around the phrases
+// 2. Wrap each phrase in parentheses to group the terms
+// 3. Join with ' OR '
+const query = keywords
+  .map((p : string) => `(${p})`) 
+  .join(' OR ');
+
+const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&sort=new&limit=5`;
   
+  console.log("The final URL : ", url);
+
   const result = await fetch(url, {
     headers: {
       // Always use a unique User-Agent so you don't get 429'd
